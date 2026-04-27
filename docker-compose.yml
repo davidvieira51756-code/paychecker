@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: paychecker-postgres
+    environment:
+      POSTGRES_DB: paychecker_db
+      POSTGRES_USER: paychecker
+      POSTGRES_PASSWORD: paychecker
+    ports:
+      - "5432:5432"
+    volumes:
+      - paychecker_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  paychecker_postgres_data:
