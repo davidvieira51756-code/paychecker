@@ -9,8 +9,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import com.paychecker.eventlog.domain.EventType;
+import com.paychecker.eventlog.service.EventLogService;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.springframework.http.HttpStatus.CONFLICT;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
@@ -19,7 +22,8 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @RequiredArgsConstructor
 public class AccountService {
 
-    private final AccountRepository accountRepository;  
+    private final AccountRepository accountRepository;
+    private final EventLogService eventLogService;
 
     @Transactional
     public AccountResponse createAccount(CreateAccountRequest request) {
@@ -38,6 +42,17 @@ public class AccountService {
                 .build();
 
         Account savedAccount = accountRepository.save(account);
+
+        eventLogService.recordEvent(
+                EventType.ACCOUNT_CREATED,
+                "ACCOUNT",
+                savedAccount.getId(),
+                Map.of(
+                        "iban", savedAccount.getIban(),
+                        "currency", savedAccount.getCurrency(),
+                        "status", savedAccount.getStatus().name()
+                )
+        );
 
         return toResponse(savedAccount);
     }

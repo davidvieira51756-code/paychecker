@@ -9,14 +9,18 @@ import com.paychecker.payment.domain.Payment;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.paychecker.eventlog.domain.EventType;
+import com.paychecker.eventlog.service.EventLogService;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class AlertService {
 
     private final RiskAlertRepository riskAlertRepository;
+    private final EventLogService eventLogService;
 
     @Transactional
     public RiskAlertResponse createAlertForPayment(Payment payment, List<String> reasons) {
@@ -30,6 +34,19 @@ public class AlertService {
                 .build();
 
         RiskAlert savedAlert = riskAlertRepository.save(alert);
+
+        eventLogService.recordEvent(
+                EventType.RISK_ALERT_CREATED,
+                "RISK_ALERT",
+                savedAlert.getId(),
+                Map.of(
+                        "paymentId", savedAlert.getPayment().getId(),
+                        "accountId", savedAlert.getAccount().getId(),
+                        "riskScore", savedAlert.getRiskScore(),
+                        "severity", savedAlert.getSeverity().name(),
+                        "status", savedAlert.getStatus().name()
+                )
+        );
 
         return toResponse(savedAlert);
     }

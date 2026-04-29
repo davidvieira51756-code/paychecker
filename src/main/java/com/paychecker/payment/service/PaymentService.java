@@ -17,8 +17,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import com.paychecker.alert.service.AlertService;
+import com.paychecker.eventlog.domain.EventType;
+import com.paychecker.eventlog.service.EventLogService;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
@@ -27,6 +30,7 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 public class PaymentService {
 
     private static final int MANUAL_REVIEW_THRESHOLD = 60;
+    private final EventLogService eventLogService;
 
     private final PaymentRepository paymentRepository;
     private final AccountRepository accountRepository;
@@ -67,6 +71,8 @@ public class PaymentService {
             }
         }
 
+
+
         Payment payment = Payment.builder()
                 .account(account)
                 .amount(request.amount())
@@ -81,6 +87,29 @@ public class PaymentService {
 
         Payment savedPayment = paymentRepository.save(payment);
 
+        eventLogService.recordEvent(
+                EventType.PAYMENT_REQUESTED,
+                "PAYMENT",
+                savedPayment.getId(),
+                Map.of(
+                        "accountId", account.getId(),
+                        "amount", savedPayment.getAmount(),
+                        "currency", savedPayment.getCurrency(),
+                        "beneficiaryCountry", savedPayment.getBeneficiaryCountry()
+                )
+        );
+
+        eventLogService.recordEvent(
+                resolvePaymentDecisionEvent(savedPayment.getStatus()),
+                "PAYMENT",
+                savedPayment.getId(),
+                Map.of(
+                        "status", savedPayment.getStatus().name(),
+                        "riskScore", savedPayment.getRiskScore(),
+                        "reasons", reasons
+                )
+        );
+
         if (savedPayment.getStatus() == PaymentStatus.MANUAL_REVIEW) {
             alertService.createAlertForPayment(savedPayment, reasons);
         }
@@ -92,5 +121,14 @@ public class PaymentService {
                 reasons,
                 savedPayment.getCreatedAt()
         );
+    }
+
+    private EventType resolvePaymentDecisionEvent(PaymentStatus status) {
+        return switch (status) {
+            case APPROVED -> EventType.PAYMENT_APPROVED;
+            case DECLINED -> EventType.PAYMENT_DECLINED;
+            case MANUAL_REVIEW -> EventType.PAYMENT_SENT_TO_REVIEW;
+            default -> EventType.PAYMENT_REQUESTED;
+        };
     }
 }

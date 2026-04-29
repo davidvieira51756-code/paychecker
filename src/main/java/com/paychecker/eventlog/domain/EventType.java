@@ -1,0 +1,13 @@
+package com.paychecker.eventlog.domain;
+
+public enum EventType {
+    ACCOUNT_CREATED,
+
+    PAYMENT_REQUESTED,
+    PAYMENT_APPROVED,
+    PAYMENT_DECLINED,
+    PAYMENT_SENT_TO_REVIEW,
+
+    RISK_SCORE_CALCULATED,
+    RISK_ALERT_CREATED
+}
