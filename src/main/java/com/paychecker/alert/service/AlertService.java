@@ -11,9 +11,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.paychecker.eventlog.domain.EventType;
 import com.paychecker.eventlog.service.EventLogService;
+import com.paychecker.alert.dto.UpdateRiskAlertStatusRequest;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.Map;
+
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -95,5 +100,40 @@ public class AlertService {
                 alert.getCreatedAt(),
                 alert.getUpdatedAt()
         );
+    }
+
+    @Transactional(readOnly = true)
+    public RiskAlertResponse getAlertById(Long id) {
+        RiskAlert alert = riskAlertRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Risk alert not found"));
+
+        return toResponse(alert);
+    }
+
+    @Transactional
+    public RiskAlertResponse updateAlertStatus(Long id, UpdateRiskAlertStatusRequest request) {
+        RiskAlert alert = riskAlertRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Risk alert not found"));
+
+        RiskAlertStatus previousStatus = alert.getStatus();
+
+        alert.setStatus(request.status());
+
+        RiskAlert savedAlert = riskAlertRepository.save(alert);
+
+        eventLogService.recordEvent(
+                EventType.RISK_ALERT_STATUS_UPDATED,
+                "RISK_ALERT",
+                savedAlert.getId(),
+                Map.of(
+                        "previousStatus", previousStatus.name(),
+                        "newStatus", savedAlert.getStatus().name(),
+                        "paymentId", savedAlert.getPayment().getId(),
+                        "accountId", savedAlert.getAccount().getId(),
+                        "riskScore", savedAlert.getRiskScore()
+                )
+        );
+
+        return toResponse(savedAlert);
     }
 }
