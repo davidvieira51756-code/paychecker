@@ -9,6 +9,9 @@ import com.paychecker.payment.dto.PaymentAuthorizationResponse;
 import com.paychecker.payment.repository.PaymentRepository;
 import com.paychecker.payment.validation.PaymentValidationContext;
 import com.paychecker.payment.validation.PaymentValidationEngine;
+import com.paychecker.risk.engine.RiskScoreResult;
+import com.paychecker.risk.engine.RiskScoringContext;
+import com.paychecker.risk.engine.RiskScoringEngine;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,25 +25,44 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @RequiredArgsConstructor
 public class PaymentService {
 
+    private static final int MANUAL_REVIEW_THRESHOLD = 60;
+
     private final PaymentRepository paymentRepository;
     private final AccountRepository accountRepository;
     private final PaymentValidationEngine paymentValidationEngine;
+    private final RiskScoringEngine riskScoringEngine;
 
     @Transactional
     public PaymentAuthorizationResponse authorizePayment(AuthorizePaymentRequest request) {
         Account account = accountRepository.findById(request.accountId())
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Account not found"));
 
-        PaymentValidationContext context = new PaymentValidationContext(account, request);
+        PaymentValidationContext validationContext = new PaymentValidationContext(account, request);
+        List<String> validationReasons = paymentValidationEngine.validate(validationContext);
 
-        List<String> reasons = paymentValidationEngine.validate(context);
+        PaymentStatus decision;
+        int riskScore;
+        List<String> reasons;
 
-        PaymentStatus decision = reasons.isEmpty()
-                ? PaymentStatus.APPROVED
-                : PaymentStatus.DECLINED;
+        if (!validationReasons.isEmpty()) {
+            decision = PaymentStatus.DECLINED;
+            riskScore = 0;
+            reasons = validationReasons;
+        } else {
+            RiskScoringContext riskContext = new RiskScoringContext(account, request);
+            RiskScoreResult riskResult = riskScoringEngine.evaluate(riskContext);
 
-        if (reasons.isEmpty()) {
-            reasons = List.of("PAYMENT_APPROVED");
+            riskScore = riskResult.score();
+
+            if (riskScore >= MANUAL_REVIEW_THRESHOLD) {
+                decision = PaymentStatus.MANUAL_REVIEW;
+                reasons = riskResult.reasons();
+            } else {
+                decision = PaymentStatus.APPROVED;
+                reasons = riskResult.reasons().isEmpty()
+                        ? List.of("PAYMENT_APPROVED")
+                        : riskResult.reasons();
+            }
         }
 
         Payment payment = Payment.builder()
@@ -52,7 +74,7 @@ public class PaymentService {
                 .beneficiaryCountry(request.beneficiaryCountry())
                 .status(decision)
                 .decisionReason(String.join(", ", reasons))
-                .riskScore(0)
+                .riskScore(riskScore)
                 .build();
 
         Payment savedPayment = paymentRepository.save(payment);
