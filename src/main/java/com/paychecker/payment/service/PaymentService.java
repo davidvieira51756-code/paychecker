@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import com.paychecker.alert.service.AlertService;
 
 import java.util.List;
 
@@ -31,6 +32,7 @@ public class PaymentService {
     private final AccountRepository accountRepository;
     private final PaymentValidationEngine paymentValidationEngine;
     private final RiskScoringEngine riskScoringEngine;
+    private final AlertService alertService;
 
     @Transactional
     public PaymentAuthorizationResponse authorizePayment(AuthorizePaymentRequest request) {
@@ -78,6 +80,10 @@ public class PaymentService {
                 .build();
 
         Payment savedPayment = paymentRepository.save(payment);
+
+        if (savedPayment.getStatus() == PaymentStatus.MANUAL_REVIEW) {
+            alertService.createAlertForPayment(savedPayment, reasons);
+        }
 
         return new PaymentAuthorizationResponse(
                 savedPayment.getId(),
