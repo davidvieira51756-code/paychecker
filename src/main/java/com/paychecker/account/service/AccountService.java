@@ -19,7 +19,7 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @RequiredArgsConstructor
 public class AccountService {
 
-    private final AccountRepository accountRepository;
+    private final AccountRepository accountRepository;  
 
     @Transactional
     public AccountResponse createAccount(CreateAccountRequest request) {
