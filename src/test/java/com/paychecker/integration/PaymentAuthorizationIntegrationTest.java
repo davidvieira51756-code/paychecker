@@ -22,6 +22,9 @@ import org.springframework.http.*;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import com.paychecker.user.domain.AppUser;
+import com.paychecker.user.domain.UserRole;
+import com.paychecker.user.repository.AppUserRepository;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -38,6 +41,9 @@ class PaymentAuthorizationIntegrationTest {
 
     @Autowired
     private TestRestTemplate restTemplate;
+
+    @Autowired
+    private AppUserRepository appUserRepository;
 
     @Test
     void shouldSendHighRiskPaymentToManualReviewAndCreateAlertAndEvents() {
@@ -157,6 +163,12 @@ class PaymentAuthorizationIntegrationTest {
         );
 
         assertThat(registerResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+        AppUser user = appUserRepository.findByEmail(email)
+                .orElseThrow();
+
+        user.setRole(UserRole.ADMIN);
+        appUserRepository.save(user);
 
         LoginRequest loginRequest = new LoginRequest(email, password);
 
