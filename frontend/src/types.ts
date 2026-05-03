@@ -4,7 +4,12 @@ export type UserStatus = "ACTIVE" | "LOCKED" | "DISABLED";
 
 export type AccountStatus = "ACTIVE" | "BLOCKED" | "CLOSED";
 
-export type PaymentDecision = "APPROVED" | "DECLINED" | "MANUAL_REVIEW" | "PENDING" | "CANCELLED";
+export type PaymentDecision =
+    | "PENDING"
+    | "APPROVED"
+    | "DECLINED"
+    | "MANUAL_REVIEW"
+    | "CANCELLED";
 
 export type RiskAlertStatus =
     | "OPEN"
@@ -14,6 +19,24 @@ export type RiskAlertStatus =
     | "CLOSED";
 
 export type RiskAlertSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+export interface PageResponse<T> {
+    content: T[];
+    page: number;
+    size: number;
+    totalElements: number;
+    totalPages: number;
+    last: boolean;
+}
+
+export interface ApiErrorResponse {
+    timestamp: string;
+    status: number;
+    error: string;
+    message: string;
+    path: string;
+    validationErrors: Record<string, string> | null;
+}
 
 export interface LoginResponse {
     userId: number;
@@ -26,13 +49,23 @@ export interface LoginResponse {
     expiresInMinutes: number;
 }
 
-export interface PageResponse<T> {
-    content: T[];
-    page: number;
-    size: number;
-    totalElements: number;
-    totalPages: number;
-    last: boolean;
+export interface UserResponse {
+    id: number;
+    fullName: string;
+    email: string;
+    role: UserRole;
+    status: UserStatus;
+    createdAt: string;
+}
+
+export interface AdminUserResponse {
+    id: number;
+    fullName: string;
+    email: string;
+    role: UserRole;
+    status: UserStatus;
+    createdAt: string;
+    updatedAt: string;
 }
 
 export interface AccountResponse {
@@ -76,13 +109,4 @@ export interface FinancialEventResponse {
     payloadJson: string;
     createdBy: string;
     createdAt: string;
-}
-
-export interface ApiErrorResponse {
-    timestamp: string;
-    status: number;
-    error: string;
-    message: string;
-    path: string;
-    validationErrors: Record<string, string> | null;
 }

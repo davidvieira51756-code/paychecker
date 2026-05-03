@@ -16,7 +16,7 @@ export async function apiRequest<T>(
     }
 
     if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
+        headers.Authorization = `Bearer ${token}`;
     }
 
     const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -31,7 +31,7 @@ export async function apiRequest<T>(
             const error = (await response.json()) as ApiErrorResponse;
             message = error.message ?? message;
         } catch {
-            // Keep default message if response body is empty.
+            // Empty body or invalid JSON.
         }
 
         throw new Error(message);
