@@ -11,8 +11,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import com.paychecker.auth.dto.LoginRequest;
+import com.paychecker.auth.dto.LoginResponse;
 
 import static org.springframework.http.HttpStatus.CONFLICT;
+import static org.springframework.http.HttpStatus.FORBIDDEN;
+import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @Service
 @RequiredArgsConstructor
@@ -50,6 +54,30 @@ public class AuthService {
                 user.getRole(),
                 user.getStatus(),
                 user.getCreatedAt()
+        );
+    }
+    @Transactional(readOnly = true)
+    public LoginResponse login(LoginRequest request) {
+        String normalizedEmail = request.email().trim().toLowerCase();
+
+        AppUser user = appUserRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "Invalid email or password"));
+
+        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            throw new ResponseStatusException(UNAUTHORIZED, "Invalid email or password");
+        }
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new ResponseStatusException(FORBIDDEN, "User account is not active");
+        }
+
+        return new LoginResponse(
+                user.getId(),
+                user.getFullName(),
+                user.getEmail(),
+                user.getRole(),
+                user.getStatus(),
+                "Login successful"
         );
     }
 }
