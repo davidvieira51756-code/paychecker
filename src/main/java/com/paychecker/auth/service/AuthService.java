@@ -16,12 +16,14 @@ import com.paychecker.auth.dto.LoginResponse;
 import com.paychecker.auth.security.JwtService;
 import com.paychecker.eventlog.domain.EventType;
 import com.paychecker.eventlog.service.EventLogService;
+import com.paychecker.auth.security.LoginRateLimiter;
 
 import java.util.Map;
 
 import static org.springframework.http.HttpStatus.CONFLICT;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
+import static org.springframework.http.HttpStatus.TOO_MANY_REQUESTS;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +33,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final EventLogService eventLogService;
+    private final LoginRateLimiter loginRateLimiter;
 
     @Transactional
     public UserResponse register(RegisterUserRequest request) {
@@ -67,8 +70,27 @@ public class AuthService {
     public LoginResponse login(LoginRequest request) {
         String normalizedEmail = request.email().trim().toLowerCase();
 
+        if (loginRateLimiter.isBlocked(normalizedEmail)) {
+            eventLogService.recordEvent(
+                    EventType.RATE_LIMIT_TRIGGERED,
+                    "AUTH",
+                    0L,
+                    Map.of(
+                            "email", normalizedEmail,
+                            "reason", "TOO_MANY_FAILED_LOGIN_ATTEMPTS"
+                    )
+            );
+
+            throw new ResponseStatusException(
+                    TOO_MANY_REQUESTS,
+                    "Too many failed login attempts. Please try again later"
+            );
+        }
+
         AppUser user = appUserRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> {
+                    loginRateLimiter.recordFailedAttempt(normalizedEmail);
+
                     eventLogService.recordEvent(
                             EventType.LOGIN_FAILED,
                             "AUTH",
@@ -83,6 +105,8 @@ public class AuthService {
                 });
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            loginRateLimiter.recordFailedAttempt(normalizedEmail);
+
             eventLogService.recordEvent(
                     EventType.LOGIN_FAILED,
                     "USER",
@@ -110,6 +134,8 @@ public class AuthService {
 
             throw new ResponseStatusException(FORBIDDEN, "User account is not active");
         }
+
+        loginRateLimiter.recordSuccessfulLogin(normalizedEmail);
 
         String token = jwtService.generateToken(user);
 
