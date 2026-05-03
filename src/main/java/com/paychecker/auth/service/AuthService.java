@@ -83,7 +83,7 @@ public class AuthService {
                 user.getStatus(),
                 token,
                 "Bearer",
-                60
+                jwtService.getExpirationMinutes()
         );
     }
 }

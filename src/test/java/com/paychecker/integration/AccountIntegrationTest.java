@@ -3,19 +3,23 @@ package com.paychecker.integration;
 import com.paychecker.account.domain.AccountStatus;
 import com.paychecker.account.dto.AccountResponse;
 import com.paychecker.account.dto.CreateAccountRequest;
+import com.paychecker.auth.dto.LoginRequest;
+import com.paychecker.auth.dto.LoginResponse;
+import com.paychecker.auth.dto.RegisterUserRequest;
+import com.paychecker.auth.dto.UserResponse;
 import com.paychecker.common.exception.ApiErrorResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -31,7 +35,9 @@ class AccountIntegrationTest {
     private TestRestTemplate restTemplate;
 
     @Test
-    void shouldCreateAccountSuccessfully() {
+    void shouldCreateAccountSuccessfullyWhenAuthenticated() {
+        HttpHeaders headers = authenticatedHeaders();
+
         CreateAccountRequest request = new CreateAccountRequest(
                 "Integration User",
                 "PT50010100000000000000101",
@@ -41,9 +47,11 @@ class AccountIntegrationTest {
                 new BigDecimal("5000.00")
         );
 
+        HttpEntity<CreateAccountRequest> entity = new HttpEntity<>(request, headers);
+
         ResponseEntity<AccountResponse> response = restTemplate.postForEntity(
                 "/api/accounts",
-                request,
+                entity,
                 AccountResponse.class
         );
 
@@ -62,6 +70,8 @@ class AccountIntegrationTest {
 
     @Test
     void shouldReturnConflictWhenIbanAlreadyExists() {
+        HttpHeaders headers = authenticatedHeaders();
+
         CreateAccountRequest request = new CreateAccountRequest(
                 "Duplicate User",
                 "PT50010200000000000000102",
@@ -71,11 +81,13 @@ class AccountIntegrationTest {
                 new BigDecimal("5000.00")
         );
 
-        restTemplate.postForEntity("/api/accounts", request, AccountResponse.class);
+        HttpEntity<CreateAccountRequest> entity = new HttpEntity<>(request, headers);
+
+        restTemplate.postForEntity("/api/accounts", entity, AccountResponse.class);
 
         ResponseEntity<ApiErrorResponse> duplicateResponse = restTemplate.postForEntity(
                 "/api/accounts",
-                request,
+                entity,
                 ApiErrorResponse.class
         );
 
@@ -87,6 +99,8 @@ class AccountIntegrationTest {
 
     @Test
     void shouldReturnValidationErrorsWhenRequestIsInvalid() {
+        HttpHeaders headers = authenticatedHeaders();
+
         CreateAccountRequest request = new CreateAccountRequest(
                 "",
                 "",
@@ -96,9 +110,11 @@ class AccountIntegrationTest {
                 new BigDecimal("-100.00")
         );
 
+        HttpEntity<CreateAccountRequest> entity = new HttpEntity<>(request, headers);
+
         ResponseEntity<ApiErrorResponse> response = restTemplate.postForEntity(
                 "/api/accounts",
-                request,
+                entity,
                 ApiErrorResponse.class
         );
 
@@ -116,5 +132,52 @@ class AccountIntegrationTest {
                 "dailyLimit",
                 "monthlyLimit"
         );
+    }
+
+    @Test
+    void shouldRejectAccountAccessWithoutToken() {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                "/api/accounts",
+                String.class
+        );
+
+        assertThat(response.getStatusCode()).isIn(HttpStatus.UNAUTHORIZED, HttpStatus.FORBIDDEN);
+    }
+
+    private HttpHeaders authenticatedHeaders() {
+        String email = "integration-" + UUID.randomUUID() + "@example.com";
+        String password = "Password123";
+
+        RegisterUserRequest registerRequest = new RegisterUserRequest(
+                "Integration Test User",
+                email,
+                password
+        );
+
+        ResponseEntity<UserResponse> registerResponse = restTemplate.postForEntity(
+                "/api/auth/register",
+                registerRequest,
+                UserResponse.class
+        );
+
+        assertThat(registerResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+        LoginRequest loginRequest = new LoginRequest(email, password);
+
+        ResponseEntity<LoginResponse> loginResponse = restTemplate.postForEntity(
+                "/api/auth/login",
+                loginRequest,
+                LoginResponse.class
+        );
+
+        assertThat(loginResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(loginResponse.getBody()).isNotNull();
+        assertThat(loginResponse.getBody().accessToken()).isNotBlank();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(loginResponse.getBody().accessToken());
+
+        return headers;
     }
 }
