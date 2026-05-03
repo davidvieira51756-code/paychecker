@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.paychecker.common.dto.PageResponse;
 import org.springframework.data.domain.Pageable;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.util.List;
 import java.util.Map;
@@ -23,7 +24,7 @@ public class EventLogService {
     private final FinancialEventRepository financialEventRepository;
     private final ObjectMapper objectMapper;
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordEvent(EventType eventType, String entityType, Long entityId, Object payload) {
         String payloadJson = toJson(payload);
 

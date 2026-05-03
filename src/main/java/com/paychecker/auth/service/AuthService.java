@@ -14,6 +14,10 @@ import org.springframework.web.server.ResponseStatusException;
 import com.paychecker.auth.dto.LoginRequest;
 import com.paychecker.auth.dto.LoginResponse;
 import com.paychecker.auth.security.JwtService;
+import com.paychecker.eventlog.domain.EventType;
+import com.paychecker.eventlog.service.EventLogService;
+
+import java.util.Map;
 
 import static org.springframework.http.HttpStatus.CONFLICT;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
@@ -26,6 +30,7 @@ public class AuthService {
     private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final EventLogService eventLogService;
 
     @Transactional
     public UserResponse register(RegisterUserRequest request) {
@@ -58,22 +63,65 @@ public class AuthService {
                 user.getCreatedAt()
         );
     }
-    @Transactional(readOnly = true)
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         String normalizedEmail = request.email().trim().toLowerCase();
 
         AppUser user = appUserRepository.findByEmail(normalizedEmail)
-                .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "Invalid email or password"));
+                .orElseThrow(() -> {
+                    eventLogService.recordEvent(
+                            EventType.LOGIN_FAILED,
+                            "AUTH",
+                            0L,
+                            Map.of(
+                                    "email", normalizedEmail,
+                                    "reason", "USER_NOT_FOUND"
+                            )
+                    );
+
+                    return new ResponseStatusException(UNAUTHORIZED, "Invalid email or password");
+                });
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            eventLogService.recordEvent(
+                    EventType.LOGIN_FAILED,
+                    "USER",
+                    user.getId(),
+                    Map.of(
+                            "email", user.getEmail(),
+                            "reason", "INVALID_PASSWORD"
+                    )
+            );
+
             throw new ResponseStatusException(UNAUTHORIZED, "Invalid email or password");
         }
 
         if (user.getStatus() != UserStatus.ACTIVE) {
+            eventLogService.recordEvent(
+                    EventType.LOGIN_FAILED,
+                    "USER",
+                    user.getId(),
+                    Map.of(
+                            "email", user.getEmail(),
+                            "reason", "USER_NOT_ACTIVE",
+                            "status", user.getStatus().name()
+                    )
+            );
+
             throw new ResponseStatusException(FORBIDDEN, "User account is not active");
         }
 
         String token = jwtService.generateToken(user);
+
+        eventLogService.recordEvent(
+                EventType.LOGIN_SUCCESS,
+                "USER",
+                user.getId(),
+                Map.of(
+                        "email", user.getEmail(),
+                        "role", user.getRole().name()
+                )
+        );
 
         return new LoginResponse(
                 user.getId(),
