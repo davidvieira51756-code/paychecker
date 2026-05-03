@@ -54,6 +54,10 @@ public class SecurityConfig {
                                 "/v3/api-docs/**"
                         ).permitAll()
 
+                        .requestMatchers("/api/admin/**")
+                        .hasRole("ADMIN")
+
+
                         .requestMatchers("/api/alerts/**")
                         .hasAnyRole("ANALYST", "ADMIN")
 

@@ -34,7 +34,10 @@ public class AdminEndpointAccessFilter extends OncePerRequestFilter {
     }
 
     private void recordAdminEndpointAccessIfNeeded(HttpServletRequest request) {
-        if (!request.getRequestURI().startsWith("/api/event-log")) {
+        boolean isAdminEndpoint = request.getRequestURI().startsWith("/api/event-log")
+                || request.getRequestURI().startsWith("/api/admin");
+
+        if (!isAdminEndpoint) {
             return;
         }
 
