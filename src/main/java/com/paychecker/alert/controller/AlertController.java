@@ -6,6 +6,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import com.paychecker.alert.dto.UpdateRiskAlertStatusRequest;
 import jakarta.validation.Valid;
+import com.paychecker.common.dto.PageResponse;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 
 import java.util.List;
 
@@ -17,13 +21,19 @@ public class AlertController {
     private final AlertService alertService;
 
     @GetMapping
-    public List<RiskAlertResponse> getAllAlerts() {
-        return alertService.getAllAlerts();
+    public PageResponse<RiskAlertResponse> getAllAlerts(
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
+            Pageable pageable
+    ) {
+        return alertService.getAllAlerts(pageable);
     }
 
     @GetMapping("/open")
-    public List<RiskAlertResponse> getOpenAlerts() {
-        return alertService.getOpenAlerts();
+    public PageResponse<RiskAlertResponse> getOpenAlerts(
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
+            Pageable pageable
+    ) {
+        return alertService.getOpenAlerts(pageable);
     }
 
     @GetMapping("/{id}")

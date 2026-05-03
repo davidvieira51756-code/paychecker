@@ -13,6 +13,8 @@ import com.paychecker.eventlog.domain.EventType;
 import com.paychecker.eventlog.service.EventLogService;
 import com.paychecker.alert.dto.UpdateRiskAlertStatusRequest;
 import org.springframework.web.server.ResponseStatusException;
+import com.paychecker.common.dto.PageResponse;
+import org.springframework.data.domain.Pageable;
 
 import java.util.Map;
 
@@ -57,19 +59,19 @@ public class AlertService {
     }
 
     @Transactional(readOnly = true)
-    public List<RiskAlertResponse> getAllAlerts() {
-        return riskAlertRepository.findAll()
-                .stream()
-                .map(this::toResponse)
-                .toList();
+    public PageResponse<RiskAlertResponse> getAllAlerts(Pageable pageable) {
+        return PageResponse.from(
+                riskAlertRepository.findAll(pageable)
+                        .map(this::toResponse)
+        );
     }
 
     @Transactional(readOnly = true)
-    public List<RiskAlertResponse> getOpenAlerts() {
-        return riskAlertRepository.findByStatus(RiskAlertStatus.OPEN)
-                .stream()
-                .map(this::toResponse)
-                .toList();
+    public PageResponse<RiskAlertResponse> getOpenAlerts(Pageable pageable) {
+        return PageResponse.from(
+                riskAlertRepository.findByStatus(RiskAlertStatus.OPEN, pageable)
+                        .map(this::toResponse)
+        );
     }
 
     private RiskAlertSeverity calculateSeverity(int riskScore) {

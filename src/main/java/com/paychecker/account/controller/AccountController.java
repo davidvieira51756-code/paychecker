@@ -7,6 +7,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import com.paychecker.common.dto.PageResponse;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 
 import java.util.List;
 
@@ -24,8 +28,11 @@ public class AccountController {
     }
 
     @GetMapping
-    public List<AccountResponse> getAllAccounts() {
-        return accountService.getAllAccounts();
+    public PageResponse<AccountResponse> getAllAccounts(
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
+            Pageable pageable
+    ) {
+        return accountService.getAllAccounts(pageable);
     }
 
     @GetMapping("/{id}")

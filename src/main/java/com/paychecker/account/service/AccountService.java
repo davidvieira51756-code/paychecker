@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import com.paychecker.eventlog.domain.EventType;
 import com.paychecker.eventlog.service.EventLogService;
+import com.paychecker.common.dto.PageResponse;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Map;
@@ -58,11 +60,11 @@ public class AccountService {
     }
 
     @Transactional(readOnly = true)
-    public List<AccountResponse> getAllAccounts() {
-        return accountRepository.findAll()
-                .stream()
-                .map(this::toResponse)
-                .toList();
+    public PageResponse<AccountResponse> getAllAccounts(Pageable pageable) {
+        return PageResponse.from(
+                accountRepository.findAll(pageable)
+                        .map(this::toResponse)
+        );
     }
 
     @Transactional(readOnly = true)

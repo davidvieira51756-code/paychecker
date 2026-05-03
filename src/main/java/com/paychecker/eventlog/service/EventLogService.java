@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.paychecker.common.dto.PageResponse;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Map;
@@ -37,19 +39,19 @@ public class EventLogService {
     }
 
     @Transactional(readOnly = true)
-    public List<FinancialEventResponse> getAllEvents() {
-        return financialEventRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
-                .stream()
-                .map(this::toResponse)
-                .toList();
+    public PageResponse<FinancialEventResponse> getAllEvents(Pageable pageable) {
+        return PageResponse.from(
+                financialEventRepository.findAll(pageable)
+                        .map(this::toResponse)
+        );
     }
 
     @Transactional(readOnly = true)
-    public List<FinancialEventResponse> getEventsForEntity(String entityType, Long entityId) {
-        return financialEventRepository.findByEntityTypeAndEntityId(entityType, entityId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
+    public PageResponse<FinancialEventResponse> getEventsForEntity(String entityType, Long entityId, Pageable pageable) {
+        return PageResponse.from(
+                financialEventRepository.findByEntityTypeAndEntityId(entityType, entityId, pageable)
+                        .map(this::toResponse)
+        );
     }
 
     private String toJson(Object payload) {
