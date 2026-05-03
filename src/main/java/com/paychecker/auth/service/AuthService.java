@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import com.paychecker.auth.dto.LoginRequest;
 import com.paychecker.auth.dto.LoginResponse;
+import com.paychecker.auth.security.JwtService;
 
 import static org.springframework.http.HttpStatus.CONFLICT;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
@@ -24,6 +25,7 @@ public class AuthService {
 
     private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     @Transactional
     public UserResponse register(RegisterUserRequest request) {
@@ -71,13 +73,17 @@ public class AuthService {
             throw new ResponseStatusException(FORBIDDEN, "User account is not active");
         }
 
+        String token = jwtService.generateToken(user);
+
         return new LoginResponse(
                 user.getId(),
                 user.getFullName(),
                 user.getEmail(),
                 user.getRole(),
                 user.getStatus(),
-                "Login successful"
+                token,
+                "Bearer",
+                60
         );
     }
 }

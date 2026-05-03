@@ -9,6 +9,8 @@ public record LoginResponse(
         String email,
         UserRole role,
         UserStatus status,
-        String message
+        String accessToken,
+        String tokenType,
+        long expiresInMinutes
 ) {
 }
