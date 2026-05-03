@@ -1,18 +1,18 @@
 # PayChecker
 
-**Payment Authorization, Fraud Risk Scoring & Audit Engine**
+**Payment Authorization, Fraud Risk Scoring, Audit Logging & Security API**
 
 PayChecker is a backend fintech application built with **Java 21** and **Spring Boot 3.5.x**.
 
-It simulates a payment authorization engine where payment requests are validated through a rule-based pipeline, assigned a fraud/risk score, and then classified as:
+It simulates a payment authorization engine where payment requests are validated through a rule-based pipeline, assigned a fraud/risk score, and classified as:
 
 - `APPROVED`
 - `DECLINED`
 - `MANUAL_REVIEW`
 
-The system also creates risk alerts for analyst review and records critical financial actions in an append-only event log for auditability.
+The system also supports risk alerts, append-only financial event logging, JWT authentication, role-based authorization, and security event logging.
 
-> This project does not process real payments. It is a backend engineering portfolio project focused on fintech domain logic, clean architecture, auditability, testing, and future cloud/security evolution.
+> This project does not process real payments. It is a backend engineering portfolio project focused on fintech domain logic, clean architecture, auditability, application security, testing, and future cloud/security evolution.
 
 ---
 
@@ -23,7 +23,9 @@ The system also creates risk alerts for analyst review and records critical fina
 - [Tech Stack](#tech-stack)
 - [Architecture](#architecture)
 - [Main Payment Authorization Flow](#main-payment-authorization-flow)
+- [Security Model](#security-model)
 - [API Endpoints](#api-endpoints)
+- [Example Requests](#example-requests)
 - [Example Responses](#example-responses)
 - [Running Locally](#running-locally)
 - [Swagger / OpenAPI](#swagger--openapi)
@@ -34,6 +36,7 @@ The system also creates risk alerts for analyst review and records critical fina
 - [Roadmap](#roadmap)
 - [Future Cloud Security / DevSecOps Plan](#future-cloud-security--devsecops-plan)
 - [Project Status](#project-status)
+- [License](#license)
 
 ---
 
@@ -41,7 +44,7 @@ The system also creates risk alerts for analyst review and records critical fina
 
 The goal of PayChecker is to simulate part of a real fintech/banking backend.
 
-When a payment request is received, the system:
+When a payment authorization request is received, the system:
 
 1. Loads the source account
 2. Runs hard validation rules
@@ -51,16 +54,19 @@ When a payment request is received, the system:
 6. Creates a risk alert if manual review is required
 7. Records critical actions in an append-only financial event log
 
-This project was designed to demonstrate real backend engineering skills such as:
+The project is designed to demonstrate backend engineering skills such as:
 
-- Clean domain separation
+- Clean modular architecture
 - DTO-based API contracts
 - Service-layer business logic
-- JPA persistence
+- Spring Data JPA persistence
 - Flyway-controlled database schema
 - Rule-based validation
-- Fraud/risk scoring
+- Rule-based fraud/risk scoring
 - Event logging and auditability
+- JWT authentication
+- Role-based authorization
+- Security event logging
 - Unit testing
 - Integration testing with PostgreSQL using Testcontainers
 
@@ -110,7 +116,7 @@ The system currently checks:
 - Currency match
 - Sufficient balance
 - Daily payment limit
-- Risk score based on fraud rules
+- Rule-based fraud/risk score
 
 ---
 
@@ -209,7 +215,7 @@ Alert status: OPEN
 
 ### Append-Only Financial Event Log
 
-PayChecker records important financial events in an append-only event log.
+PayChecker records important financial and security events in an append-only event log.
 
 Examples:
 
@@ -221,9 +227,56 @@ PAYMENT_DECLINED
 PAYMENT_SENT_TO_REVIEW
 RISK_ALERT_CREATED
 RISK_ALERT_STATUS_UPDATED
+LOGIN_SUCCESS
+LOGIN_FAILED
 ```
 
 The event log provides traceability for sensitive actions and supports a basic audit trail.
+
+---
+
+### Authentication and Authorization
+
+PayChecker includes JWT-based authentication and role-based authorization.
+
+Supported roles:
+
+```text
+CUSTOMER
+ANALYST
+ADMIN
+```
+
+Current authorization model:
+
+```text
+/api/auth/**       Public
+Swagger/OpenAPI    Public
+/api/alerts/**     ANALYST or ADMIN
+/api/event-log/**  ADMIN only
+Other endpoints    Authenticated users
+```
+
+---
+
+### Security Event Logging
+
+The system records authentication-related security events:
+
+```text
+LOGIN_SUCCESS
+LOGIN_FAILED
+```
+
+Examples:
+
+```text
+Successful login -> LOGIN_SUCCESS
+Invalid password -> LOGIN_FAILED
+Unknown email    -> LOGIN_FAILED
+```
+
+These events are stored in the same append-only event log and can later be used for cloud monitoring and alerting.
 
 ---
 
@@ -234,10 +287,19 @@ The event log provides traceability for sensitive actions and supports a basic a
 - Java 21
 - Spring Boot 3.5.x
 - Spring Web
+- Spring Security
 - Spring Data JPA
 - Bean Validation
 - Lombok
 - Maven
+
+### Security
+
+- JWT authentication
+- BCrypt password hashing
+- Role-based authorization
+- Stateless security configuration
+- Custom JSON responses for `401 Unauthorized` and `403 Forbidden`
 
 ### Database
 
@@ -265,7 +327,7 @@ The event log provides traceability for sensitive actions and supports a basic a
 
 PayChecker follows a **modular monolith** architecture.
 
-The project is organized by domain, not by technical layer only.
+The project is organized by domain, not only by technical layer.
 
 ```text
 com.paychecker
@@ -276,6 +338,16 @@ com.paychecker
 │   ├── dto
 │   ├── repository
 │   └── service
+│
+├── auth
+│   ├── controller
+│   ├── dto
+│   ├── security
+│   └── service
+│
+├── user
+│   ├── domain
+│   └── repository
 │
 ├── payment
 │   ├── controller
@@ -319,6 +391,7 @@ com.paychecker
 | Service | Contains business logic and orchestration |
 | Domain | Represents business entities and enums |
 | Repository | Communicates with the database through Spring Data JPA |
+| Security | Handles JWT, authentication and authorization concerns |
 | Flyway Migration | Controls database schema changes |
 
 ---
@@ -416,52 +489,197 @@ RISK_ALERT_CREATED
 
 ---
 
+## Security Model
+
+### Registration
+
+```http
+POST /api/auth/register
+```
+
+Registration creates a user with the default role:
+
+```text
+CUSTOMER
+```
+
+Users cannot self-register as `ADMIN` or `ANALYST`.
+
+---
+
+### Login
+
+```http
+POST /api/auth/login
+```
+
+Login validates:
+
+- Email exists
+- Password matches the stored BCrypt hash
+- User status is `ACTIVE`
+
+If successful, the API returns a JWT access token.
+
+---
+
+### JWT Claims
+
+The generated JWT contains:
+
+```text
+subject -> user email
+userId  -> user ID
+role    -> CUSTOMER / ANALYST / ADMIN
+iat     -> issued at
+exp     -> expiration
+```
+
+---
+
+### Endpoint Authorization
+
+Current authorization rules:
+
+| Endpoint | Access |
+|---|---|
+| `/api/auth/**` | Public |
+| `/swagger-ui/**` | Public |
+| `/v3/api-docs/**` | Public |
+| `/api/alerts/**` | `ANALYST`, `ADMIN` |
+| `/api/event-log/**` | `ADMIN` |
+| Other API endpoints | Authenticated users |
+
+---
+
+### Security Error Responses
+
+Unauthenticated requests return JSON:
+
+```json
+{
+  "timestamp": "2026-05-03T19:00:00Z",
+  "status": 401,
+  "error": "Unauthorized",
+  "message": "Authentication is required to access this resource",
+  "path": "/api/accounts",
+  "validationErrors": null
+}
+```
+
+Forbidden requests return JSON:
+
+```json
+{
+  "timestamp": "2026-05-03T19:00:00Z",
+  "status": 403,
+  "error": "Forbidden",
+  "message": "You do not have permission to access this resource",
+  "path": "/api/alerts",
+  "validationErrors": null
+}
+```
+
+---
+
 ## API Endpoints
+
+### Authentication
+
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| POST | `/api/auth/register` | Register user | Public |
+| POST | `/api/auth/login` | Login and receive JWT | Public |
+
+---
 
 ### Accounts
 
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/accounts` | Create a new account |
-| GET | `/api/accounts` | List accounts with pagination |
-| GET | `/api/accounts/{id}` | Get account by ID |
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| POST | `/api/accounts` | Create a new account | Authenticated |
+| GET | `/api/accounts` | List accounts with pagination | Authenticated |
+| GET | `/api/accounts/{id}` | Get account by ID | Authenticated |
 
 ---
 
 ### Payments
 
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/payments/authorize` | Authorize a payment request |
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| POST | `/api/payments/authorize` | Authorize a payment request | Authenticated |
 
 ---
 
 ### Alerts
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/alerts` | List alerts with pagination |
-| GET | `/api/alerts/open` | List open alerts |
-| GET | `/api/alerts/{id}` | Get alert by ID |
-| PATCH | `/api/alerts/{id}/status` | Update alert status |
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| GET | `/api/alerts` | List alerts with pagination | `ANALYST`, `ADMIN` |
+| GET | `/api/alerts/open` | List open alerts | `ANALYST`, `ADMIN` |
+| GET | `/api/alerts/{id}` | Get alert by ID | `ANALYST`, `ADMIN` |
+| PATCH | `/api/alerts/{id}/status` | Update alert status | `ANALYST`, `ADMIN` |
 
 ---
 
 ### Event Log
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/event-log` | List financial events with pagination |
-| GET | `/api/event-log/{entityType}/{entityId}` | List events for a specific entity |
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| GET | `/api/event-log` | List financial events with pagination | `ADMIN` |
+| GET | `/api/event-log/{entityType}/{entityId}` | List events for a specific entity | `ADMIN` |
 
 ---
 
 ## Example Requests
 
+### Register User
+
+```http
+POST /api/auth/register
+Content-Type: application/json
+```
+
+```json
+{
+  "fullName": "David Vieira",
+  "email": "david@example.com",
+  "password": "Password123"
+}
+```
+
+---
+
+### Login
+
+```http
+POST /api/auth/login
+Content-Type: application/json
+```
+
+```json
+{
+  "email": "david@example.com",
+  "password": "Password123"
+}
+```
+
+---
+
+### Authenticated Request
+
+```http
+GET /api/accounts
+Authorization: Bearer <access_token>
+```
+
+---
+
 ### Create Account
 
 ```http
 POST /api/accounts
+Authorization: Bearer <access_token>
 Content-Type: application/json
 ```
 
@@ -482,6 +700,7 @@ Content-Type: application/json
 
 ```http
 POST /api/payments/authorize
+Authorization: Bearer <access_token>
 Content-Type: application/json
 ```
 
@@ -502,6 +721,7 @@ Content-Type: application/json
 
 ```http
 PATCH /api/alerts/1/status
+Authorization: Bearer <access_token>
 Content-Type: application/json
 ```
 
@@ -514,6 +734,23 @@ Content-Type: application/json
 ---
 
 ## Example Responses
+
+### Login Response
+
+```json
+{
+  "userId": 1,
+  "fullName": "David Vieira",
+  "email": "david@example.com",
+  "role": "CUSTOMER",
+  "status": "ACTIVE",
+  "accessToken": "eyJhbGciOiJIUzUxMiJ9...",
+  "tokenType": "Bearer",
+  "expiresInMinutes": 60
+}
+```
+
+---
 
 ### Approved Payment
 
@@ -599,6 +836,22 @@ Content-Type: application/json
 
 ---
 
+### Security Event
+
+```json
+{
+  "id": 2,
+  "eventType": "LOGIN_FAILED",
+  "entityType": "USER",
+  "entityId": 1,
+  "payloadJson": "{\"reason\":\"INVALID_PASSWORD\",\"email\":\"david@example.com\"}",
+  "createdBy": "SYSTEM",
+  "createdAt": "2026-05-03T12:00:00Z"
+}
+```
+
+---
+
 ## Running Locally
 
 ### Prerequisites
@@ -669,10 +922,14 @@ http://localhost:8080/v3/api-docs
 
 Swagger can be used to test:
 
+- User registration
+- Login
 - Account creation
 - Payment authorization
 - Alert review
 - Event log queries
+
+For protected endpoints, use the JWT returned by `/api/auth/login`.
 
 ---
 
@@ -724,6 +981,8 @@ V3__create_payments_table.sql
 V4__create_risk_alerts_table.sql
 V5__create_financial_events_table.sql
 V6__add_risk_alert_status_updated_event.sql
+V7__create_users_table.sql
+V8__add_security_event_types.sql
 ```
 
 Hibernate is configured with:
@@ -772,6 +1031,7 @@ Current integration test coverage includes:
 - Account creation
 - Duplicate IBAN handling
 - Request validation errors
+- JWT-authenticated API access
 - Payment authorization flow
 - Risk alert creation
 - Financial event log creation
@@ -780,6 +1040,7 @@ Integration tests verify the full flow across:
 
 ```text
 HTTP request
+Spring Security filter chain
 Controller
 DTO validation
 Service
@@ -823,6 +1084,36 @@ The project includes a global exception handler that returns consistent API erro
   "error": "Not Found",
   "message": "Account not found",
   "path": "/api/accounts/9999",
+  "validationErrors": null
+}
+```
+
+---
+
+### Unauthorized Example
+
+```json
+{
+  "timestamp": "2026-05-03T19:00:00Z",
+  "status": 401,
+  "error": "Unauthorized",
+  "message": "Authentication is required to access this resource",
+  "path": "/api/accounts",
+  "validationErrors": null
+}
+```
+
+---
+
+### Forbidden Example
+
+```json
+{
+  "timestamp": "2026-05-03T19:00:00Z",
+  "status": 403,
+  "error": "Forbidden",
+  "message": "You do not have permission to access this resource",
+  "path": "/api/alerts",
   "validationErrors": null
 }
 ```
@@ -943,7 +1234,7 @@ Explainability is especially important in financial systems.
 
 Financial systems require traceability.
 
-The append-only event log records important business events such as:
+The append-only event log records important business and security events such as:
 
 ```text
 ACCOUNT_CREATED
@@ -953,9 +1244,57 @@ PAYMENT_DECLINED
 PAYMENT_SENT_TO_REVIEW
 RISK_ALERT_CREATED
 RISK_ALERT_STATUS_UPDATED
+LOGIN_SUCCESS
+LOGIN_FAILED
 ```
 
 This supports auditability and future security monitoring.
+
+---
+
+### Why `REQUIRES_NEW` for Event Logging?
+
+Security events such as failed login attempts must remain recorded even if the main operation fails.
+
+For example:
+
+```text
+Invalid password
+-> record LOGIN_FAILED
+-> return 401 Unauthorized
+```
+
+The event log uses a separate transaction for event recording, so security events are not rolled back when the main login transaction fails.
+
+---
+
+### Why JWT?
+
+JWT allows the API to be stateless.
+
+The backend does not need server-side sessions. Each request includes:
+
+```http
+Authorization: Bearer <access_token>
+```
+
+The token contains the authenticated user identity and role.
+
+---
+
+### Why Role-Based Authorization?
+
+Different user types should not have the same access.
+
+Example:
+
+```text
+CUSTOMER -> can use account/payment endpoints
+ANALYST  -> can review risk alerts
+ADMIN    -> can inspect the event log
+```
+
+This is closer to how financial and internal systems are typically structured.
 
 ---
 
@@ -981,11 +1320,13 @@ paychecker/
 │   │   ├── java/com/paychecker/
 │   │   │   ├── account/
 │   │   │   ├── alert/
+│   │   │   ├── auth/
 │   │   │   ├── common/
 │   │   │   ├── config/
 │   │   │   ├── eventlog/
 │   │   │   ├── payment/
-│   │   │   └── risk/
+│   │   │   ├── risk/
+│   │   │   └── user/
 │   │   │
 │   │   └── resources/
 │   │       ├── application.properties
@@ -1030,16 +1371,27 @@ paychecker/
 
 ### Application Security
 
-- [ ] Spring Security
-- [ ] User registration and login
-- [ ] Password hashing
-- [ ] JWT authentication
-- [ ] Roles:
+- [x] User domain model
+- [x] User registration
+- [x] Password hashing with BCrypt
+- [x] Login endpoint
+- [x] JWT generation
+- [x] JWT authentication filter
+- [x] Spring Security configuration
+- [x] Roles:
     - `CUSTOMER`
     - `ANALYST`
     - `ADMIN`
-- [ ] Endpoint authorization
-- [ ] Security event logs
+- [x] Endpoint authorization
+- [x] Security event logs:
+    - `LOGIN_SUCCESS`
+    - `LOGIN_FAILED`
+- [x] JSON responses for `401 Unauthorized`
+- [x] JSON responses for `403 Forbidden`
+- [ ] Security event logs:
+    - `UNAUTHORIZED_ACCESS`
+    - `ADMIN_ENDPOINT_ACCESS`
+    - `RATE_LIMIT_TRIGGERED`
 - [ ] Rate limiting
 
 ---
@@ -1153,7 +1505,7 @@ These documents will describe:
 
 ## Project Status
 
-PayChecker currently implements the backend core for:
+PayChecker currently implements a secured backend core for:
 
 ```text
 Accounts
@@ -1162,27 +1514,22 @@ Validation pipeline
 Risk scoring
 Risk alerts
 Financial event logging
+JWT authentication
+Role-based authorization
+Security event logging
 Swagger documentation
 Unit testing
 Integration testing
 ```
 
-The next major phase is application security:
+The next recommended improvements are:
 
 ```text
-Spring Security
-JWT authentication
-User roles
-Security event logs
+Additional security event logs
 Rate limiting
-```
-
-After that, the project will evolve toward:
-
-```text
+GitHub Actions CI
+Dockerfile for the API
 Frontend demo
-Dockerized API
-GitHub Actions
 DevSecOps pipeline
 Azure deployment
 Cloud monitoring and alerts
