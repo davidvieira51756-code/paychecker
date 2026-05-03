@@ -3,6 +3,7 @@ package com.paychecker.common.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -16,7 +17,7 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ApiErrorResponse handleValidationException(
+    public ResponseEntity<ApiErrorResponse> handleValidationException(
             MethodArgumentNotValidException exception,
             HttpServletRequest request
     ) {
@@ -29,7 +30,7 @@ public class GlobalExceptionHandler {
                         error.getDefaultMessage()
                 ));
 
-        return new ApiErrorResponse(
+        ApiErrorResponse response = new ApiErrorResponse(
                 Instant.now(),
                 HttpStatus.BAD_REQUEST.value(),
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
@@ -37,16 +38,18 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(),
                 validationErrors
         );
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
     @ExceptionHandler(ResponseStatusException.class)
-    public ApiErrorResponse handleResponseStatusException(
+    public ResponseEntity<ApiErrorResponse> handleResponseStatusException(
             ResponseStatusException exception,
             HttpServletRequest request
     ) {
         HttpStatusCode statusCode = exception.getStatusCode();
 
-        return new ApiErrorResponse(
+        ApiErrorResponse response = new ApiErrorResponse(
                 Instant.now(),
                 statusCode.value(),
                 resolveReasonPhrase(statusCode),
@@ -54,14 +57,16 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(),
                 null
         );
+
+        return ResponseEntity.status(statusCode).body(response);
     }
 
     @ExceptionHandler(Exception.class)
-    public ApiErrorResponse handleGenericException(
+    public ResponseEntity<ApiErrorResponse> handleGenericException(
             Exception exception,
             HttpServletRequest request
     ) {
-        return new ApiErrorResponse(
+        ApiErrorResponse response = new ApiErrorResponse(
                 Instant.now(),
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
@@ -69,6 +74,8 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(),
                 null
         );
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 
     private String resolveReasonPhrase(HttpStatusCode statusCode) {
