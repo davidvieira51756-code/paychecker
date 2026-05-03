@@ -136,12 +136,15 @@ class AccountIntegrationTest {
 
     @Test
     void shouldRejectAccountAccessWithoutToken() {
-        ResponseEntity<String> response = restTemplate.getForEntity(
+        ResponseEntity<ApiErrorResponse> response = restTemplate.getForEntity(
                 "/api/accounts",
-                String.class
+                ApiErrorResponse.class
         );
 
-        assertThat(response.getStatusCode()).isIn(HttpStatus.UNAUTHORIZED, HttpStatus.FORBIDDEN);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().message())
+                .isEqualTo("Authentication is required to access this resource");
     }
 
     private HttpHeaders authenticatedHeaders() {
