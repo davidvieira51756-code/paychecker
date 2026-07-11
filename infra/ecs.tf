@@ -49,6 +49,10 @@ resource "aws_ecs_task_definition" "api" {
         {
           name  = "APP_JWT_EXPIRATION_MINUTES"
           value = "60"
+        },
+        {
+          name  = "APP_CORS_ALLOWED_ORIGINS"
+          value = "https://${aws_cloudfront_distribution.frontend.domain_name}"
         }
       ]
 

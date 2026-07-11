@@ -52,3 +52,23 @@ output "ecs_service_name" {
   description = "Amazon Elastic Container Service service name."
   value       = aws_ecs_service.api.name
 }
+
+output "frontend_bucket_name" {
+  description = "Amazon Simple Storage Service bucket for frontend build artifacts."
+  value       = aws_s3_bucket.frontend.bucket
+}
+
+output "frontend_cloudfront_domain_name" {
+  description = "Amazon CloudFront domain name for the frontend."
+  value       = aws_cloudfront_distribution.frontend.domain_name
+}
+
+output "frontend_cloudfront_distribution_id" {
+  description = "Amazon CloudFront distribution ID for cache invalidations."
+  value       = aws_cloudfront_distribution.frontend.id
+}
+
+output "frontend_url" {
+  description = "Public frontend URL."
+  value       = "https://${aws_cloudfront_distribution.frontend.domain_name}"
+}
