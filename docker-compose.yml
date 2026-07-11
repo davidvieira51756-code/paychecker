@@ -11,5 +11,22 @@ services:
     volumes:
       - paychecker_postgres_data:/var/lib/postgresql/data
 
+  api:
+    build:
+      context: .
+    container_name: paychecker-api
+    depends_on:
+      - postgres
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/paychecker_db
+      SPRING_DATASOURCE_USERNAME: paychecker
+      SPRING_DATASOURCE_PASSWORD: paychecker
+      APP_JWT_SECRET: paychecker-local-development-secret-key-for-jwt-signing-must-be-long
+      APP_JWT_EXPIRATION_MINUTES: 60
+    ports:
+      - "8080:8080"
+
 volumes:
   paychecker_postgres_data:
