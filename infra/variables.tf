@@ -63,3 +63,15 @@ variable "api_desired_count" {
   type        = number
   default     = 1
 }
+
+variable "github_repository" {
+  description = "GitHub repository allowed to assume the deployment role, in owner/name format."
+  type        = string
+  default     = "davidvieira51756-code/paychecker"
+}
+
+variable "github_branch" {
+  description = "Git branch allowed to assume the deployment role."
+  type        = string
+  default     = "main"
+}

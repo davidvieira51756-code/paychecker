@@ -72,3 +72,8 @@ output "frontend_url" {
   description = "Public frontend URL."
   value       = "https://${aws_cloudfront_distribution.frontend.domain_name}"
 }
+
+output "github_actions_role_arn" {
+  description = "IAM role ARN used by GitHub Actions OIDC deployments."
+  value       = aws_iam_role.github_actions.arn
+}
