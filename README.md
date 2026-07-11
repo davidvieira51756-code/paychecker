@@ -1,8 +1,8 @@
 # PayChecker
 
-**Payment Authorization, Fraud Risk Scoring, Audit Logging & Security API**
+**Payment Authorization, Fraud Risk Scoring, Audit Logging & Security App**
 
-PayChecker is a backend fintech application built with **Java 21** and **Spring Boot 3.5.x**.
+PayChecker is a fintech application with a **Java 21 / Spring Boot 3.5.x** backend and a **React / Vite** frontend.
 
 It simulates a payment authorization engine where payment requests are validated through a rule-based pipeline, assigned a fraud/risk score, and classified as:
 
@@ -287,11 +287,19 @@ These events are stored in the same append-only event log and can later be used 
 - Java 21
 - Spring Boot 3.5.x
 - Spring Web
+- Spring Boot Actuator
 - Spring Security
 - Spring Data JPA
 - Bean Validation
 - Lombok
 - Maven
+
+### Frontend
+
+- React
+- TypeScript
+- Vite
+- Lucide React
 
 ### Security
 
@@ -306,6 +314,11 @@ These events are stored in the same append-only event log and can later be used 
 - PostgreSQL 16
 - Flyway migrations
 - Docker Compose for local development
+
+### Containerization
+
+- Dockerfile for the backend API
+- Docker Compose for local PostgreSQL and API runtime
 
 ### API Documentation
 
@@ -857,26 +870,43 @@ Content-Type: application/json
 ### Prerequisites
 
 - Java 21
+- Node.js and npm
 - Docker Desktop
 - Maven Wrapper included in the project
 
 ---
 
-### 1. Start PostgreSQL
+### 1. Start PostgreSQL and the API with Docker Compose
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
-This starts a local PostgreSQL database using Docker Compose.
+This starts:
+
+- PostgreSQL 16
+- the PayChecker backend API container
+
+The API is available at:
+
+```text
+http://localhost:8080
+```
+
+The health endpoint is available at:
+
+```text
+http://localhost:8080/actuator/health
+```
 
 ---
 
-### 2. Run the Application
+### 2. Run the Backend Directly Instead
 
-On Windows PowerShell:
+If you prefer to run only PostgreSQL in Docker and the backend directly from your IDE or terminal:
 
 ```powershell
+docker compose up -d postgres
 .\mvnw spring-boot:run
 ```
 
@@ -884,7 +914,52 @@ Or run the `PaycheckerApplication` class directly from IntelliJ.
 
 ---
 
-### 3. Stop PostgreSQL
+### 3. Run the Frontend
+
+In a separate terminal:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend is usually available at:
+
+```text
+http://localhost:5173
+```
+
+The frontend reads the backend URL from:
+
+```text
+VITE_API_BASE_URL
+```
+
+For local development, it defaults to:
+
+```text
+http://localhost:8080
+```
+
+---
+
+### 4. Build the Frontend
+
+```powershell
+cd frontend
+npm run build
+```
+
+The production static files are generated in:
+
+```text
+frontend/dist
+```
+
+---
+
+### 5. Stop Local Containers
 
 ```bash
 docker compose down
@@ -1398,36 +1473,44 @@ paychecker/
 
 ### DevSecOps / Cloud Security
 
-- [ ] Dockerfile for the API
+- [x] Environment-specific backend configuration
+- [x] Spring Boot Actuator health endpoint
+- [x] Dockerfile for the API
+- [x] Docker Compose API + PostgreSQL local runtime
+- [x] Frontend production build configuration
+- [ ] Terraform infrastructure
+- [ ] Amazon Elastic Container Registry for the backend image
+- [ ] Amazon Relational Database Service for PostgreSQL
+- [ ] Amazon Elastic Container Service with AWS Fargate
+- [ ] Application Load Balancer for the backend API
+- [ ] Amazon Simple Storage Service for frontend static hosting
+- [ ] Amazon CloudFront for frontend delivery
+- [ ] AWS Systems Manager Parameter Store or AWS Secrets Manager for secrets
 - [ ] GitHub Actions CI pipeline
 - [ ] Secret scanning with Gitleaks
 - [ ] SAST with Semgrep
 - [ ] Dependency and container scanning with Trivy
-- [ ] Azure Container Registry
-- [ ] Azure Container Apps
-- [ ] Azure Database for PostgreSQL
-- [ ] Azure Key Vault
-- [ ] Managed Identity
-- [ ] Log Analytics
-- [ ] Application Insights
-- [ ] Azure Monitor security alerts
+- [ ] Amazon CloudWatch logs and alerts
 
 ---
 
-### Future Frontend
+### Frontend
 
-- [ ] Login page
-- [ ] Accounts dashboard
-- [ ] Payment authorization form
-- [ ] Decision result view
-- [ ] Risk alert dashboard
-- [ ] Event log viewer
+- [x] Login page
+- [x] Registration page
+- [x] Accounts dashboard
+- [x] Payment authorization form
+- [x] Decision result view
+- [x] Risk alert dashboard
+- [x] Event log viewer
+- [x] User administration view
+- [x] Production build with Vite
 
 ---
 
 ## Future Cloud Security / DevSecOps Plan
 
-After the local backend MVP is complete, PayChecker is planned to evolve into a cloud security and DevSecOps lab on Azure.
+After the local application MVP is complete, PayChecker is planned to evolve into a cloud security and DevSecOps lab on AWS using Terraform.
 
 Target architecture:
 
@@ -1443,24 +1526,24 @@ GitHub
   | - deploy with OIDC
   v
 
-Azure
+AWS
   |
-  +-- Azure Container Registry
-  +-- Azure Container Apps
-  +-- Azure Database for PostgreSQL
-  +-- Azure Key Vault
-  +-- Managed Identity
-  +-- Log Analytics Workspace
-  +-- Application Insights
-  +-- Azure Monitor Alerts
+  +-- Amazon Elastic Container Registry
+  +-- Amazon Elastic Container Service with AWS Fargate
+  +-- Application Load Balancer
+  +-- Amazon Relational Database Service for PostgreSQL
+  +-- AWS Systems Manager Parameter Store or AWS Secrets Manager
+  +-- Amazon Simple Storage Service
+  +-- Amazon CloudFront
+  +-- Amazon CloudWatch
 ```
 
 Planned security practices:
 
 ```text
-No long-lived Azure credentials stored in GitHub
-Secrets stored in Azure Key Vault
-Managed Identity for cloud resource access
+No long-lived AWS credentials stored in GitHub
+Secrets stored in AWS Systems Manager Parameter Store or AWS Secrets Manager
+OIDC-based GitHub Actions deployment
 Least-privilege RBAC
 Automated security scanning in CI/CD
 Centralized logs
@@ -1518,8 +1601,12 @@ JWT authentication
 Role-based authorization
 Security event logging
 Swagger documentation
+Spring Boot Actuator health checks
 Unit testing
 Integration testing
+React frontend
+Dockerized backend
+Docker Compose local runtime
 ```
 
 The next recommended improvements are:
@@ -1527,11 +1614,14 @@ The next recommended improvements are:
 ```text
 Additional security event logs
 Rate limiting
+Terraform infrastructure
+Amazon Elastic Container Registry
+Amazon Relational Database Service for PostgreSQL
+Amazon Elastic Container Service with AWS Fargate
+Application Load Balancer
+Amazon Simple Storage Service and Amazon CloudFront frontend hosting
 GitHub Actions CI
-Dockerfile for the API
-Frontend demo
 DevSecOps pipeline
-Azure deployment
 Cloud monitoring and alerts
 ```
 
