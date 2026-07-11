@@ -1,3 +1,8 @@
 aws_region   = "eu-west-1"
 project_name = "paychecker"
 environment  = "dev"
+
+db_name           = "paychecker_db"
+db_username       = "paychecker"
+db_password       = "change-me-to-a-strong-password"
+db_instance_class = "db.t4g.micro"
