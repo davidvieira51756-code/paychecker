@@ -45,3 +45,21 @@ variable "db_instance_class" {
   type        = string
   default     = "db.t4g.micro"
 }
+
+variable "app_jwt_secret" {
+  description = "JWT signing secret used by the backend API."
+  type        = string
+  sensitive   = true
+}
+
+variable "api_image_tag" {
+  description = "Backend API Docker image tag to deploy from Amazon Elastic Container Registry."
+  type        = string
+  default     = "latest"
+}
+
+variable "api_desired_count" {
+  description = "Number of backend API tasks to run."
+  type        = number
+  default     = 1
+}
