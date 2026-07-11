@@ -49,3 +49,7 @@ postgres-data/
 *.class
 hs_err_pid*
 replay_pid*
+
+
+# Local JDK
+oracleJdk-26/
